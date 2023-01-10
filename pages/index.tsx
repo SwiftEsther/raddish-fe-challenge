@@ -10,7 +10,7 @@ import { getAccount } from '@wagmi/core';
 import { mainnet, localhost, polygon } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
 import { ChainId, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider } from '@aave/contract-helpers';
 import { computeAPY, getProvider, handleAddToken, mapAddressesToTokenName } from './utils/helpers';
@@ -28,8 +28,6 @@ const { connectors } = getDefaultWallets({
   chains
 });
 
-const alcProvider = new ethers.providers.AlchemyProvider('polygon', process.env.ALCHEMY_ID);; // polygon is the same thing as matic
-
 const wagmiClient = createClient({
   autoConnect: true,
   connectors,
@@ -38,6 +36,7 @@ const wagmiClient = createClient({
 
 const account = getAccount();
 
+const alcProvider = getProvider('matic'); // polygon is the same thing as matic
 
 const uiPoolDataProviderAddress = '0x7006e5a16E449123a3F26920746d03337ff37340'.toLowerCase();
 const poolAddressProvider = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'.toLowerCase();
