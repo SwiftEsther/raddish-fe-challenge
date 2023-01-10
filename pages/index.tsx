@@ -6,6 +6,7 @@ import {
   ConnectButton
 } from '@rainbow-me/rainbowkit';
 import { configureChains, createClient, goerli, WagmiConfig } from 'wagmi';
+import { getAccount } from '@wagmi/core';
 import { mainnet, localhost } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
@@ -31,6 +32,8 @@ const wagmiClient = createClient({
   connectors,
   provider
 })
+
+const account = getAccount();
 
 const alcProvider = new ethers.providers.AlchemyProvider('goerli', process.env.ALCHEMY_ID)
 
