@@ -7,15 +7,16 @@ import {
 } from '@rainbow-me/rainbowkit';
 import { configureChains, createClient, goerli, WagmiConfig } from 'wagmi';
 import { getAccount } from '@wagmi/core';
-import { mainnet, localhost } from 'wagmi/chains';
+import { mainnet, localhost, polygon } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
 import { ChainId, ReserveDataHumanized, UiPoolDataProvider,WalletBalanceProvider } from '@aave/contract-helpers';
+import { computeAPY, getProvider } from './utils/helpers';
 
 const { chains, provider } = configureChains(
-  [localhost, goerli, mainnet],
+  [localhost, goerli, mainnet, polygon],
   [
     alchemyProvider({ apiKey: process.env.ALCHEMY_ID || '' }),
     publicProvider()
@@ -35,16 +36,16 @@ const wagmiClient = createClient({
 
 const account = getAccount();
 
-const alcProvider = new ethers.providers.AlchemyProvider('goerli', process.env.ALCHEMY_ID)
+const alcProvider = getProvider('matic'); // polygon is the same thing as matic
 
-const uiPoolDataProviderAddress = '0xC576539371a2f425545B7BF4eb2a14Eee1944a1C'.toLowerCase();
-const poolAddressProvider = '0xc4dCB5126a3AfEd129BC3668Ea19285A9f56D15D'.toLowerCase();
-const walletBalanceProviderAddress = '0x75CC0f0E3764be7594772D08EEBc322970CbB3a9'.toLowerCase();
+const uiPoolDataProviderAddress = '0x7006e5a16E449123a3F26920746d03337ff37340'.toLowerCase();
+const poolAddressProvider = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'.toLowerCase();
+const walletBalanceProviderAddress = '0xBc790382B3686abffE4be14A030A96aC6154023a'.toLowerCase();
 
 const poolDataProviderContract = new UiPoolDataProvider({
   uiPoolDataProviderAddress,
   provider: alcProvider,
-  chainId: ChainId.goerli
+  chainId: ChainId.polygon
 });
 
 const walletBalanceProviderContract = new WalletBalanceProvider({
@@ -91,6 +92,7 @@ export default function Home() {
                   <tr>
                     <th className='px-4 mb-4'>Assets</th>
                     <th className='px-4 mb-4'>Wallet Balance</th>
+                    <th className='px-4 mb-4'>APY</th>
                     <th className='px-4 mb-4'></th>
                   </tr>
                 </thead>
@@ -98,9 +100,10 @@ export default function Home() {
                   {poolReserve.map((data, index) => 
                     <tr key={data.id} className='h-12'>
                       <td className='px-4'>{data.name}</td>
-                      <td className='px-4'>{Number(userBalances[index])}</td>
+                      <td className='px-4'>{Number(userBalances[index] || 0)}</td>
+                      <td className='px-4'>{computeAPY(data.liquidityRate).toFixed(2)}%</td>
                       <td className='px-4'>
-                        <button className='bg-black text-white rounded-md py-2 px-4'>Supply</button>
+                        <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' disabled={Number(userBalances[index] || 0) <= 0}>Supply</button>
                       </td>
                     </tr>
                   )}
