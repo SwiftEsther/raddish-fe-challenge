@@ -9,7 +9,6 @@ export const computeAPY = (liquidityRate) => {
     const bnRay = new BN("10").pow(new BN("27"));
     const depositAPR = (liquidityRate/10**27);
     const depositAPY = ((1 + (depositAPR.toString() / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - 1;
-    console.log({bnRay: bnRay.toString(), bnLiquidityRate: bnLiquidityRate.toString(), liquidityRate:liquidityRate, depositAPR:depositAPR, depositAPY:depositAPY*100});
     return depositAPY*100;
 }
 
