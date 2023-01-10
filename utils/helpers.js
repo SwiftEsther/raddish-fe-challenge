@@ -42,7 +42,7 @@ export const mapAddressesToTokenName = (poolReserve) => {
     return tokenMap;
 }
 
-export   const handleAddToken = async(tokenAddress, tokenSymbol) => {
+export const handleAddToken = async(tokenAddress, tokenSymbol) => {
     const tokenDecimals = 18;
     const tokenImage = 'http://placekitten.com/200/300';
 

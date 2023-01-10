@@ -13,7 +13,7 @@ import { publicProvider } from 'wagmi/providers/public';
 import { BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
 import { ChainId, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider } from '@aave/contract-helpers';
-import { computeAPY, getProvider, handleAddToken, mapAddressesToTokenName } from './utils/helpers';
+import { computeAPY, getProvider, handleAddToken, mapAddressesToTokenName } from '../utils/helpers';
 
 const { chains, provider } = configureChains(
   [localhost, goerli, mainnet, polygon],
