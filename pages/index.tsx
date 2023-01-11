@@ -7,16 +7,19 @@ import {
 } from '@rainbow-me/rainbowkit';
 import { configureChains, createClient, goerli, WagmiConfig } from 'wagmi';
 import { getAccount } from '@wagmi/core';
-import { mainnet, localhost, polygon } from 'wagmi/chains';
+import { mainnet, localhost, polygonMumbai } from 'wagmi/chains';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
 import { BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
-import { ChainId, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider } from '@aave/contract-helpers';
-import { computeAPY, getProvider, handleAddToken, mapAddressesToTokenName } from '../utils/helpers';
+import { ChainId, PoolBaseCurrencyHumanized, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider } from '@aave/contract-helpers';
+import { FormatReserveUSDResponse, formatReserves, formatUserSummary } from '@aave/math-utils';
+import { computeAPY, computeUSDEquivalentOfAToken, getProvider, handleAddToken, mapAddressesToTokenName } from '../utils/helpers';
+import dayjs from 'dayjs';
 
+const currentTimestamp = dayjs().unix();
 const { chains, provider } = configureChains(
-  [localhost, goerli, mainnet, polygon],
+  [localhost, goerli, mainnet, polygonMumbai],
   [
     alchemyProvider({ apiKey: process.env.NEXT_PUBLIC_ALCHEMY_ID || '' }),
     publicProvider()
@@ -36,16 +39,16 @@ const wagmiClient = createClient({
 
 const account = getAccount();
 
-const alcProvider = getProvider('matic'); // polygon is the same thing as matic
+const alcProvider = getProvider('maticmum'); // polygon is the same thing as matic
 
-const uiPoolDataProviderAddress = '0x7006e5a16E449123a3F26920746d03337ff37340'.toLowerCase();
-const poolAddressProvider = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'.toLowerCase();
-const walletBalanceProviderAddress = '0xBc790382B3686abffE4be14A030A96aC6154023a'.toLowerCase();
+const uiPoolDataProviderAddress = '0x74E3445f239f9915D57715Efb810f67b2a7E5758'.toLowerCase();
+const poolAddressProvider = '0x5343b5bA672Ae99d627A1C87866b8E53F47Db2E6'.toLowerCase();
+const walletBalanceProviderAddress = '0x78baC31Ed73c115EB7067d1AfE75eC7B4e16Df9e'.toLowerCase();
 
 const poolDataProviderContract = new UiPoolDataProvider({
   uiPoolDataProviderAddress,
   provider: alcProvider,
-  chainId: ChainId.polygon
+  chainId: ChainId.mumbai
 });
 
 const walletBalanceProviderContract = new WalletBalanceProvider({
@@ -56,27 +59,41 @@ const walletBalanceProviderContract = new WalletBalanceProvider({
 const hanldeClick = async() => {
   await alcProvider.send("eth_accounts", []);
   const signer = alcProvider.getSigner();
-  console.log("Account:", await signer.getAddress());
+  // console.log("Account:", await signer.getAddress());
 }
 
 export default function Home() {
   const [poolReserve, setPoolReserve] = useState<ReserveDataHumanized[]>([]);
+  const [baseCurrencyData, setBaseCurrencyData] = useState<PoolBaseCurrencyHumanized>();
+  const [formattedPoolReserves, setFormattedPoolReserves] = useState<(ReserveDataHumanized & FormatReserveUSDResponse)[]>([]);
   const [userBalances, setUserBalances] = useState<BigNumber[]>([]);
   const [userPoolReserve, setUserPoolReserve] = useState<UserReserveDataHumanized[]>([]);
+  const [userSummary, setUserSummary] = useState<(ReserveDataHumanized & FormatReserveUSDResponse) | any>();
   const [tokenMap, setTokenMap] = useState<any>({});
 
   useEffect(() => {
     getReserve();
     getWalletBalances();
-    getUserReserve();
   }, []);
+
+  useEffect(() => {
+    getUserReserve();
+  }, [formattedPoolReserves, baseCurrencyData]);
 
   const getReserve = async() => {
       await poolDataProviderContract.getReservesHumanized({lendingPoolAddressProvider: poolAddressProvider})
       .then((reserve => {
         setPoolReserve(reserve.reservesData);
+        setBaseCurrencyData(reserve.baseCurrencyData);
+        const formattedArray = formatReserves({
+          reserves: reserve.reservesData,
+          currentTimestamp,
+          marketReferenceCurrencyDecimals:
+            reserve.baseCurrencyData.marketReferenceCurrencyDecimals,
+          marketReferencePriceInUsd: reserve.baseCurrencyData.marketReferenceCurrencyPriceInUsd,
+        });
+        setFormattedPoolReserves(formattedArray)
         setTokenMap(mapAddressesToTokenName(reserve.reservesData));
-        console.log(mapAddressesToTokenName(reserve.reservesData))
       }))
       .catch((error) => console.log('Error loading reserve', error));
   }
@@ -85,7 +102,16 @@ export default function Home() {
     await poolDataProviderContract.getUserReservesHumanized({lendingPoolAddressProvider: poolAddressProvider, user: `0x${getAccount().address?.substring(2)}`})
     .then((reserve => {
       setUserPoolReserve(reserve.userReserves);
-      console.log(reserve.userReserves)
+      const summary = formatUserSummary({
+        currentTimestamp,
+        marketReferencePriceInUsd: baseCurrencyData?.marketReferenceCurrencyPriceInUsd || '',
+        marketReferenceCurrencyDecimals:
+          baseCurrencyData?.marketReferenceCurrencyDecimals || 0,
+        userReserves: reserve.userReserves,
+        formattedReserves: formattedPoolReserves,
+        userEmodeCategoryId: reserve.userEmodeCategoryId,
+      });
+      setUserSummary(summary)
     }))
     .catch((error) => console.log('Error loading reserve', error));
   }
@@ -139,14 +165,16 @@ export default function Home() {
                     <tr>
                       <th className='px-4 mb-4'>Assets</th>
                       <th className='px-4 mb-4'>aToken Balance</th>
+                      <th className='px-4 mb-4'>USD value</th>
                       <th className='px-4 mb-4'></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {userPoolReserve.map((data, index) => 
+                    {userSummary?.userReservesData.map((data:any) => 
                       <tr key={data.id} className='h-12'>
-                        <td className='px-4'>{tokenMap[data.underlyingAsset] ? tokenMap[data.underlyingAsset].name : ''}</td>
+                        <td className='px-4'>{data.reserve.name}</td>
                         <td className='px-4'>{Number(data.scaledATokenBalance || 0)}</td>
+                        <td className='px-4'>${computeUSDEquivalentOfAToken(data.reserve.priceInUSD, data.scaledATokenBalance)}</td>
                         <td className='px-4'>
                           <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' disabled={Number(data.scaledATokenBalance || 0) <= 0} onClick={() => handleAddToken(tokenMap[data.underlyingAsset].aTokenAddress, `a${tokenMap[data.underlyingAsset].symbol}`)}>Add aToken</button>
                         </td>

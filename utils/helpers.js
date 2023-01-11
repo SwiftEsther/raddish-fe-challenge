@@ -106,4 +106,8 @@ export const handleAddToken = async(tokenAddress, tokenSymbol) => {
     } catch (error) {
       console.log(error);
     }
-  }
+}
+
+export const computeUSDEquivalentOfAToken = (reserveAssetPriceInUSD, aTokenBalance) => {
+  return (reserveAssetPriceInUSD * aTokenBalance).toFixed(2)
+}
