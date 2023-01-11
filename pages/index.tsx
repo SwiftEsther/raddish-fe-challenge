@@ -18,7 +18,7 @@ import { computeAPY, getProvider, handleAddToken, mapAddressesToTokenName } from
 const { chains, provider } = configureChains(
   [localhost, goerli, mainnet, polygon],
   [
-    alchemyProvider({ apiKey: process.env.ALCHEMY_ID || '' }),
+    alchemyProvider({ apiKey: process.env.NEXT_PUBLIC_ALCHEMY_ID || '' }),
     publicProvider()
   ]
 );
