@@ -44,7 +44,6 @@ export const mapAddressesToTokenName = (poolReserve) => {
 
 export const handleAddToken = async(tokenAddress, tokenSymbol) => {
     const tokenDecimals = 18;
-    const tokenImage = 'http://placekitten.com/200/300';
 
     try {
       const wasAdded = await window.ethereum?.request({
