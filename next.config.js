@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    NEXT_PUBLIC_ALCHEMY_ID: 'API_KEY',
+    ALCHEMY_ID: 'API_KEY',
   }
 }
 
