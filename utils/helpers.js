@@ -6,6 +6,11 @@ import { erc20ABI } from 'wagmi';
 const RAY = Math.pow(10, 27);
 const SECONDS_PER_YEAR = 31536000;
 
+const uiPoolDataProviderAddress = '0x7006e5a16E449123a3F26920746d03337ff37340'.toLowerCase();
+const poolAddress = '0x794a61358D6845594F94dc1DB02A252b5b4814aD'.toLowerCase();
+const walletBalanceProviderAddress = '0xBc790382B3686abffE4be14A030A96aC6154023a'.toLowerCase();
+// const signer = await fetchSigner();
+
 export const computeAPY = (liquidityRate) => {
     const bnLiquidityRate = new BN(liquidityRate);
     const bnRay = new BN("10").pow(new BN("27"));
@@ -13,6 +18,40 @@ export const computeAPY = (liquidityRate) => {
     const depositAPY = ((1 + (depositAPR.toString() / SECONDS_PER_YEAR)) ** SECONDS_PER_YEAR) - 1;
     return depositAPY*100;
 }
+
+export const deposit = async({etherAmount, tokenAddress}) => {
+    const amountinWei = ethers.utils.parseEther(etherAmount).toString();
+
+    // try {
+      // Approve the LendingPoolCore address with the DAI contract
+    //   const tokenContract = fetchContract();
+    const tokenContract = getContract({
+        address: tokenAddress,
+        abi: erc20ABI,
+    })
+    // await fetchSigner().then(res => console.log(res))
+      console.log(tokenContract)
+      await tokenContract.methods
+        .approve(poolAddress, amountinWei)
+        .send({ from: getAccount().address })
+        .catch((e) => {
+          throw Error(`Error approving DAI allowance: ${e.message}`)
+        })
+
+      // Make the deposit transaction via LendingPool contract
+    //   const lpAddress = await getLendingPoolAddress()
+    //   const lpContract = new web3.eth.Contract(LendingPoolABI, lpAddress)
+    //   await lpContract.methods
+    //     .deposit(daiAddress, daiAmountinWei, referralCode)
+    //     .send({ from: myAddress })
+    //     .catch((e) => {
+    //       throw Error(`Error depositing to the LendingPool contract: ${e.message}`)
+    //     })
+    // } catch (e) {
+    //   alert(e.message)
+    //   console.log(e.message)
+    // }
+  }
 
 export const fetchContract = ({address}) => {
     return getContract({
@@ -22,7 +61,7 @@ export const fetchContract = ({address}) => {
 }
 
 export const getProvider = (network) => {
-    const provider = new ethers.providers.AlchemyProvider(network, process.env.ALCHEMY_ID);
+    const provider = new ethers.providers.AlchemyProvider(network, process.env.NEXT_PUBLIC_ALCHEMY_ID);
     return provider;
 }
 
