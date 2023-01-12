@@ -66,7 +66,6 @@ export default function Home() {
   const [userPoolReserve, setUserPoolReserve] = useState<UserReserveDataHumanized[]>([]);
   const [userSummary, setUserSummary] = useState<(ReserveDataHumanized & FormatReserveUSDResponse) | any>();
   const [tokenMap, setTokenMap] = useState<any>({});
-  const [metaProvider, setMetaProvider] = useState<any>();
 
   useEffect(() => {
     getReserve();
@@ -137,11 +136,7 @@ export default function Home() {
     // console.log('txs', txs)
     await submitTransaction(ethProvider, txs[0])
       .then(async res => {
-        console.log(res);
-        await submitTransaction(ethProvider, txs[1])
-          .then(res => {
-            console.log(res);
-          })
+        alert("Approval Successful. Fresh!");
       })
       .catch(err => alert(err));
   }
@@ -156,7 +151,10 @@ export default function Home() {
           <link rel="icon" href="/favicon.ico" />
         </Head>
         <div className='container mx-auto py-10'>
-          <ConnectButton />
+          <div className='md:flex justify-between'>
+            <ConnectButton />
+            <a href="https://github.com/SwiftEsther/raddish-fe-challenge">Code Base</a>
+          </div>
           <div className='md:flex justify-between'>
             <div className='rounded-lg w-1/2 mt-10'>
               <h2 className='mb-10'>Pools</h2>
