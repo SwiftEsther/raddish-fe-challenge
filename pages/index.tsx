@@ -12,16 +12,17 @@ import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
 import { BigNumber } from 'ethers';
 import { useEffect, useState } from 'react';
-import { ChainId, PoolBaseCurrencyHumanized, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider } from '@aave/contract-helpers';
+import { ChainId, PoolBaseCurrencyHumanized, ReserveDataHumanized, UiPoolDataProvider,UserReserveDataHumanized,WalletBalanceProvider, Pool, EthereumTransactionTypeExtended } from '@aave/contract-helpers';
 import { FormatReserveUSDResponse, formatReserves, formatUserSummary } from '@aave/math-utils';
-import { computeAPY, computeUSDEquivalentOfAToken, getProvider, handleAddToken, mapAddressesToTokenName } from '../utils/helpers';
+import { computeAPY, computeUSDEquivalentOfAToken, getEthProvider, getProvider, handleAddToken, mapAddressesToTokenName, submitTransaction } from '../utils/helpers';
 import dayjs from 'dayjs';
+
 
 const currentTimestamp = dayjs().unix();
 const { chains, provider } = configureChains(
   [localhost, goerli, mainnet, polygonMumbai],
   [
-    alchemyProvider({ apiKey: process.env.NEXT_PUBLIC_ALCHEMY_ID || '' }),
+    alchemyProvider({ apiKey: process.env.ALCHEMY_ID || '' }),
     publicProvider()
   ]
 );
@@ -39,11 +40,12 @@ const wagmiClient = createClient({
 
 const account = getAccount();
 
-const alcProvider = getProvider('maticmum'); // polygon is the same thing as matic
+const alcProvider = getProvider('maticmum');
 
 const uiPoolDataProviderAddress = '0x74E3445f239f9915D57715Efb810f67b2a7E5758'.toLowerCase();
 const poolAddressProvider = '0x5343b5bA672Ae99d627A1C87866b8E53F47Db2E6'.toLowerCase();
 const walletBalanceProviderAddress = '0x78baC31Ed73c115EB7067d1AfE75eC7B4e16Df9e'.toLowerCase();
+const wethGatewayAddress = '0x2a58E9bbb5434FdA7FF78051a4B82cb0EF669C17'.toLowerCase();
 
 const poolDataProviderContract = new UiPoolDataProvider({
   uiPoolDataProviderAddress,
@@ -56,12 +58,6 @@ const walletBalanceProviderContract = new WalletBalanceProvider({
   provider: alcProvider
 });
 
-const hanldeClick = async() => {
-  await alcProvider.send("eth_accounts", []);
-  const signer = alcProvider.getSigner();
-  // console.log("Account:", await signer.getAddress());
-}
-
 export default function Home() {
   const [poolReserve, setPoolReserve] = useState<ReserveDataHumanized[]>([]);
   const [baseCurrencyData, setBaseCurrencyData] = useState<PoolBaseCurrencyHumanized>();
@@ -70,6 +66,7 @@ export default function Home() {
   const [userPoolReserve, setUserPoolReserve] = useState<UserReserveDataHumanized[]>([]);
   const [userSummary, setUserSummary] = useState<(ReserveDataHumanized & FormatReserveUSDResponse) | any>();
   const [tokenMap, setTokenMap] = useState<any>({});
+  const [metaProvider, setMetaProvider] = useState<any>();
 
   useEffect(() => {
     getReserve();
@@ -93,6 +90,7 @@ export default function Home() {
           marketReferencePriceInUsd: reserve.baseCurrencyData.marketReferenceCurrencyPriceInUsd,
         });
         setFormattedPoolReserves(formattedArray)
+        console.log(formattedArray)
         setTokenMap(mapAddressesToTokenName(reserve.reservesData));
       }))
       .catch((error) => console.log('Error loading reserve', error));
@@ -111,7 +109,8 @@ export default function Home() {
         formattedReserves: formattedPoolReserves,
         userEmodeCategoryId: reserve.userEmodeCategoryId,
       });
-      setUserSummary(summary)
+      setUserSummary(summary);
+      console.log(summary)
     }))
     .catch((error) => console.log('Error loading reserve', error));
   }
@@ -119,72 +118,98 @@ export default function Home() {
   const getWalletBalances = async() => {
     const balances = await walletBalanceProviderContract.getUserWalletBalancesForLendingPoolProvider(`${account.address}`, poolAddressProvider);
     setUserBalances(balances[1]);
+    // await walletBalanceProviderContract.batchBalanceOf([`${account.address}`], ["0x326C977E6efc84E512bB9C30f76E30c160eD06FB", "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]).then (res => console.log(Number(res[0]), Number(res[1])))
+  }
+
+  const handleSupply = async(reserveAddress: string) => {
+    const ethProvider = getEthProvider();
+    const signer = ethProvider.getSigner();
+    await ethProvider.send("eth_accounts", []);
+    const pool = new Pool(ethProvider, {
+      POOL: uiPoolDataProviderAddress,
+      WETH_GATEWAY: wethGatewayAddress,
+    });
+    const txs: EthereumTransactionTypeExtended[] = await pool.supply({
+      user: `0x${getAccount().address?.substring(2)}`,
+      reserve: reserveAddress,
+      amount: "0.00001"
+    });
+    // console.log('txs', txs)
+    await submitTransaction(ethProvider, txs[0])
+      .then(async res => {
+        console.log(res);
+        await submitTransaction(ethProvider, txs[1])
+          .then(res => {
+            console.log(res);
+          })
+      })
+      .catch(err => alert(err));
   }
 
   return (
     <WagmiConfig client={wagmiClient}>
-      <RainbowKitProvider chains={chains} initialChain={mainnet}>
-          <Head>
-            <title>Radish Frontend Challenge</title>
-            <meta name="description" content="Generated by create next app" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <link rel="icon" href="/favicon.ico" />
-          </Head>
-          <div className='container mx-auto py-10'>
-            <ConnectButton />
-            <div className='flex justify-between'>
-              <div className='rounded-lg w-1/2 mt-10'>
-                <h2 className='mb-10'>Pools</h2>
-                <table className="table-auto">
-                  <thead className='border-b-2 border-b-black'>
-                    <tr>
-                      <th className='px-4 mb-4'>Assets</th>
-                      <th className='px-4 mb-4'>Wallet Balance</th>
-                      <th className='px-4 mb-4'>APY</th>
-                      <th className='px-4 mb-4'></th>
+      <RainbowKitProvider chains={chains} initialChain={polygonMumbai}>
+        <Head>
+          <title>Radish Frontend Challenge</title>
+          <meta name="description" content="Generated by create next app" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        <div className='container mx-auto py-10'>
+          <ConnectButton />
+          <div className='md:flex justify-between'>
+            <div className='rounded-lg w-1/2 mt-10'>
+              <h2 className='mb-10'>Pools</h2>
+              <table className="table-auto">
+                <thead className='border-b-2 border-b-black'>
+                  <tr>
+                    <th className='px-4 mb-4'>Assets</th>
+                    <th className='px-4 mb-4'>Wallet Balance</th>
+                    <th className='px-4 mb-4'>APY</th>
+                    <th className='px-4 mb-4'></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {poolReserve.map((data, index) => 
+                    <tr key={data.id} className='h-12'>
+                      <td className='px-4'>{data.name}</td>
+                      <td className='px-4'>{Number(userBalances[index] || 0)}</td>
+                      <td className='px-4'>{computeAPY(data.liquidityRate).toFixed(2)}%</td>
+                      <td className='px-4'>
+                        <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' onClick={() => handleSupply(data.underlyingAsset)}>Supply</button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {poolReserve.map((data, index) => 
-                      <tr key={data.id} className='h-12'>
-                        <td className='px-4'>{data.name}</td>
-                        <td className='px-4'>{Number(userBalances[index] || 0)}</td>
-                        <td className='px-4'>{computeAPY(data.liquidityRate).toFixed(2)}%</td>
-                        <td className='px-4'>
-                          <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' disabled={Number(userBalances[index] || 0) <= 0} onClick={() => hanldeClick()}>Supply</button>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className='rounded-lg w-1/2 my-10'>
-                <h2 className='mb-10'>My Supplies</h2>
-                <table className="table-auto">
-                  <thead className='border-b-2 border-b-black'>
-                    <tr>
-                      <th className='px-4 mb-4'>Assets</th>
-                      <th className='px-4 mb-4'>aToken Balance</th>
-                      <th className='px-4 mb-4'>USD value</th>
-                      <th className='px-4 mb-4'></th>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className='rounded-lg w-1/2 my-10'>
+              <h2 className='mb-10'>My Supplies</h2>
+              <table className="table-auto">
+                <thead className='border-b-2 border-b-black'>
+                  <tr>
+                    <th className='px-4 mb-4'>Assets</th>
+                    <th className='px-4 mb-4'>aToken Balance</th>
+                    <th className='px-4 mb-4'>USD value</th>
+                    <th className='px-4 mb-4'></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userSummary?.userReservesData.map((data:any) => 
+                    <tr key={data.id} className='h-12'>
+                      <td className='px-4'>aPol{data.reserve.name}</td>
+                      <td className='px-4'>{Number(data.scaledATokenBalance || 0)}</td>
+                      <td className='px-4'>${computeUSDEquivalentOfAToken(data.reserve.priceInUSD, data.scaledATokenBalance)}</td>
+                      <td className='px-4'>
+                        <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' onClick={() => handleAddToken(data.reserve.aTokenAddress, `aPol${data.reserve.name}`)}>Add aToken</button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {userSummary?.userReservesData.map((data:any) => 
-                      <tr key={data.id} className='h-12'>
-                        <td className='px-4'>{data.reserve.name}</td>
-                        <td className='px-4'>{Number(data.scaledATokenBalance || 0)}</td>
-                        <td className='px-4'>${computeUSDEquivalentOfAToken(data.reserve.priceInUSD, data.scaledATokenBalance)}</td>
-                        <td className='px-4'>
-                          <button className='bg-black text-white rounded-md py-2 px-4 disabled:opacity-50' disabled={Number(data.scaledATokenBalance || 0) <= 0} onClick={() => handleAddToken(tokenMap[data.underlyingAsset].aTokenAddress, `a${tokenMap[data.underlyingAsset].symbol}`)}>Add aToken</button>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
       </RainbowKitProvider>
     </WagmiConfig>
   )

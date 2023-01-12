@@ -65,6 +65,11 @@ export const getProvider = (network) => {
     return provider;
 }
 
+export const getEthProvider = () => {
+  const ethProvider = new ethers.providers.Web3Provider(window.ethereum);
+  return ethProvider;
+}
+
 export const mapBalances = (balances) => {
     let balancesMap = {};
     balances[0].map((address, index) => {
@@ -93,7 +98,7 @@ export const handleAddToken = async(tokenAddress, tokenSymbol) => {
             address: tokenAddress,
             symbol: tokenSymbol,
             decimals: tokenDecimals,
-            image: tokenImage,
+            image: "",
           },
         },
       });
@@ -110,4 +115,15 @@ export const handleAddToken = async(tokenAddress, tokenSymbol) => {
 
 export const computeUSDEquivalentOfAToken = (reserveAssetPriceInUSD, aTokenBalance) => {
   return (reserveAssetPriceInUSD * aTokenBalance).toFixed(2)
+}
+
+export const submitTransaction = async(provider, tx) => {
+  const extendedTxData = await tx.tx();
+  const { from, ...txData } = extendedTxData;
+  const signer = provider.getSigner(from);
+  const txResponse = await signer.sendTransaction({
+    ...txData,
+    value: txData.value ? BigNumber.from(txData.value) : undefined,
+  });
+  console.log(txResponse);
 }
